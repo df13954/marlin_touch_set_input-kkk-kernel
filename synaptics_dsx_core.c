@@ -44,7 +44,7 @@
 #include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 #ifdef KERNEL_ABOVE_2_6_38
-#include <linux/input/mt.h>
+#include <linux/inpu`t/mt.h>
 #endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/touch_input"
@@ -5987,6 +5987,7 @@ static int synaptics_rmi4_f12_abs_report_me(bool stop,int x,int y);
 //该函数为实现点击触摸屏
 void set_input_touch_click(int x,int y)
 {
+	//这是为了模拟更像所以多调用几次
 	synaptics_rmi4_f12_abs_report_me(false,x,y);
 	synaptics_rmi4_f12_abs_report_me(false,x,y);
 	synaptics_rmi4_f12_abs_report_me(false,x,y);
@@ -5996,9 +5997,12 @@ void set_input_touch_click(int x,int y)
 	synaptics_rmi4_f12_abs_report_me(true,x,y);
 	return;
 }
+
+//该代码作用为将该符号导出给其他驱动使用
 EXPORT_SYMBOL(set_input_touch_click);
 
-//该函数实现滑动触摸屏，为开始的位置到停止的位置
+//该函数实现滑动触摸屏，为开始的位置到停止的位置，可以看到我都是分为9次移动过去，
+//系统会通过判断时间等来判断点击和移动的。其中代码就不仔细分析了。
 void set_input_touch_slide(int start_x,int start_y,int end_x,int end_y)
 {
 	int tmp_x = 0;
@@ -6083,6 +6087,8 @@ void set_input_touch_slide(int start_x,int start_y,int end_x,int end_y)
     	}
 	return;
 }
+
+// 导出符号,给驱动
 EXPORT_SYMBOL(set_input_touch_slide);
 
 //该函数为实现触摸关键函数
@@ -6093,7 +6099,7 @@ static int synaptics_rmi4_f12_abs_report_me(bool stop,int x,int y)
 	int wx;
 	int wy;
 	struct synaptics_rmi4_f12_finger_data data_me= {0};
-	
+	//判断是手指是否离开触摸屏
 	if(stop == true){
 		data_me.object_type_and_status = 20;
 	}else{
@@ -6116,7 +6122,8 @@ static int synaptics_rmi4_f12_abs_report_me(bool stop,int x,int y)
 	case F12_GLOVED_FINGER_STATUS:
 		/* Stylus has priority over fingers */		
 		printk(KERN_ALERT "zeyu F12_GLOVED_FINGER_STATUS\n");
-
+		//向输入子系统报告触摸屏触摸信息，p_inputdev为触摸屏设备的指针，
+		//该指针我是通过正常驱动函数中拿到的，当然也可以通过其他途径，大家自行考虑
 		input_mt_slot(p_inputdev,0);
 		input_mt_report_slot_state(p_inputdev,
 				MT_TOOL_FINGER, 1);
@@ -6143,18 +6150,15 @@ static int synaptics_rmi4_f12_abs_report_me(bool stop,int x,int y)
 			
 		break;
 	default:
+		//当手指离开触摸屏时执行到这里
 		printk(KERN_ALERT "zeyu default\n");
 		input_mt_slot(p_inputdev, 0);
-		input_mt_report_slot_state(p_inputdev,
-					MT_TOOL_FINGER, 0);
+		input_mt_report_slot_state(p_inputdev, MT_TOOL_FINGER, 0);
 		break;
 	}
-	
-
+	//该函数执行立即同步，不然会有延迟
 	input_sync(p_inputdev);
-
 	return 0;
-	
 }
 
 module_init(synaptics_rmi4_init);
